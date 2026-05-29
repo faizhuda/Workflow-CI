@@ -1,0 +1,14 @@
+name: telco-churn
+
+python_env: conda.yaml
+
+entry_points:
+  main:
+    parameters:
+      n_estimators:
+        type: int
+        default: 100
+      max_depth:
+        type: str
+        default: "10"
+    command: "python modelling.py --n_estimators {n_estimators} --max_depth {max_depth}"

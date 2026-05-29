@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/Users/faizn/projects/SMSML_Faiz-Naufal-Huda/Workflow-CI/MLProject/mlruns/977432381718788022/871c9fb9aacb49ec99a330c6130a5ac9/artifacts
+end_time: 1780054889828
+entry_point_name: ''
+experiment_id: '977432381718788022'
+lifecycle_stage: active
+run_id: 871c9fb9aacb49ec99a330c6130a5ac9
+run_name: serious-fish-986
+run_uuid: 871c9fb9aacb49ec99a330c6130a5ac9
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1780054878311
+status: 3
+tags: []
+user_id: faizn

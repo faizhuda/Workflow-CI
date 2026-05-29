@@ -1,0 +1,2 @@
+Docker Hub image will be available after CI workflow runs successfully:
+https://hub.docker.com/r/faizhuda/telco-churn-model

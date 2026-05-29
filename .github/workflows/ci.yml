@@ -1,0 +1,92 @@
+name: MLflow CI - Train and Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'MLProject/**'
+  workflow_dispatch:
+
+env:
+  MLFLOW_TRACKING_URI: ${{ secrets.DAGSHUB_MLFLOW_URI }}
+  MLFLOW_TRACKING_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
+  MLFLOW_TRACKING_PASSWORD: ${{ secrets.DAGSHUB_PASSWORD }}
+  DOCKER_IMAGE: faizhuda/telco-churn-model
+
+jobs:
+  train-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Miniconda
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          python-version: '3.12.7'
+          auto-activate-base: true
+          auto-update-conda: true
+
+      - name: Install MLflow
+        shell: bash -el {0}
+        run: pip install mlflow==2.19.0
+
+      - name: Run MLflow Project
+        shell: bash -el {0}
+        run: |
+          mlflow run ./MLProject \
+            --experiment-name "telco-churn-ci" \
+            -P n_estimators=200 \
+            -P max_depth=10
+
+      - name: Read run ID
+        id: run_id
+        run: echo "RUN_ID=$(cat MLProject/run_id.txt)" >> $GITHUB_ENV
+
+      - name: Upload model artifacts to GitHub
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-artifacts-run-${{ github.run_number }}
+          path: |
+            MLProject/run_id.txt
+          retention-days: 30
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image with MLflow
+        shell: bash -el {0}
+        run: |
+          mlflow models build-docker \
+            -m "runs:/${{ env.RUN_ID }}/model" \
+            -n "${{ env.DOCKER_IMAGE }}"
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Push Docker image to Docker Hub
+        run: |
+          docker tag ${{ env.DOCKER_IMAGE }} ${{ env.DOCKER_IMAGE }}:latest
+          docker tag ${{ env.DOCKER_IMAGE }} ${{ env.DOCKER_IMAGE }}:run-${{ github.run_number }}
+          docker push ${{ env.DOCKER_IMAGE }}:latest
+          docker push ${{ env.DOCKER_IMAGE }}:run-${{ github.run_number }}
+
+      - name: Update DockerHub.txt with image link
+        run: |
+          echo "https://hub.docker.com/r/faizhuda/telco-churn-model" > MLProject/DockerHub.txt
+          echo "Image: ${{ env.DOCKER_IMAGE }}:run-${{ github.run_number }}" >> MLProject/DockerHub.txt
+
+      - name: Commit DockerHub link back to repo
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git add MLProject/DockerHub.txt MLProject/run_id.txt
+          git diff --staged --quiet || git commit -m "ci: update DockerHub link and run_id [skip ci]"
+          git push
