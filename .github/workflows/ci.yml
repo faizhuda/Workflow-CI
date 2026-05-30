@@ -70,7 +70,7 @@ jobs:
           mlflow models build-docker \
             -m "runs:/${{ env.RUN_ID }}/model" \
             -n "${{ env.DOCKER_IMAGE }}" \
-            --env-manager virtualenv
+            --env-manager local
 
       - name: Push Docker image to Docker Hub
         run: |
