@@ -55,14 +55,6 @@ jobs:
           path: MLProject/run_id.txt
           retention-days: 30
 
-      - name: Download model artifacts from MLflow tracking server
-        shell: bash -el {0}
-        run: |
-          mlflow artifacts download \
-            --run-id ${{ env.RUN_ID }} \
-            --artifact-path model \
-            --dst-path ./model_artifacts
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -72,15 +64,20 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: Dockerfile.serve
-          push: true
-          tags: |
-            ${{ env.DOCKER_IMAGE }}:latest
-            ${{ env.DOCKER_IMAGE }}:run-${{ github.run_number }}
+      - name: Build Docker image with MLflow
+        shell: bash -el {0}
+        run: |
+          mlflow models build-docker \
+            -m "runs:/${{ env.RUN_ID }}/model" \
+            -n "${{ env.DOCKER_IMAGE }}" \
+            --env-manager virtualenv
+
+      - name: Push Docker image to Docker Hub
+        run: |
+          docker tag ${{ env.DOCKER_IMAGE }} ${{ env.DOCKER_IMAGE }}:latest
+          docker tag ${{ env.DOCKER_IMAGE }} ${{ env.DOCKER_IMAGE }}:run-${{ github.run_number }}
+          docker push ${{ env.DOCKER_IMAGE }}:latest
+          docker push ${{ env.DOCKER_IMAGE }}:run-${{ github.run_number }}
 
       - name: Update DockerHub.txt with image link
         run: |
